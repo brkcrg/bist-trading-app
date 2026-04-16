@@ -113,8 +113,8 @@ with st.sidebar:
 st.title("BIST Swing Trading Pro")
 st.caption("Kısa vadeli (3-10 gün tutma) swing stratejisi · EMA9/21 + RSI(7) + ATR")
 
-tab_dashboard, tab_intraday, tab_analysis, tab_fundamental, tab_backtest, tab_scanner, tab_portfolio = st.tabs(
-    ["GÖSTERGE PANELİ", "GÜNLÜK TRADE", "TEKNİK ANALİZ", "TEMEL ANALİZ", "BACKTEST", "FIRSAT TARAYICI", "PORTFÖY"]
+tab_dashboard, tab_intraday, tab_analysis, tab_fundamental, tab_backtest, tab_scanner, tab_tavan, tab_portfolio = st.tabs(
+    ["GÖSTERGE PANELİ", "GÜNLÜK TRADE", "TEKNİK ANALİZ", "TEMEL ANALİZ", "BACKTEST", "FIRSAT TARAYICI", "TAVAN TAKİP", "PORTFÖY"]
 )
 
 # ============== DASHBOARD ==============
@@ -700,6 +700,109 @@ with tab_scanner:
                 st.warning("Sonuç yok")
         else:
             st.info("Sol panelden TARAMAYI BAŞLAT butonuna bas.")
+
+# ============== TAVAN TAKİP ==============
+with tab_tavan:
+    st.markdown("**BIST 100 Tavan / Taban Takip** — Günlük limit hareketlerini takip eder (±%10 sınır).")
+
+    tavan_btn = st.button("TARA", type="primary", key="tavan_btn")
+
+    if tavan_btn:
+        rows = []
+        progress = st.progress(0, text="BIST 100 taranıyor...")
+        total = len(BIST100)
+
+        for i, sym in enumerate(BIST100):
+            progress.progress((i + 1) / total, text=f"{sym} taranıyor... ({i+1}/{total})")
+            try:
+                df_tv = fetch(sym, period="5d", interval="1d", use_cache=False)
+                if df_tv.empty or len(df_tv) < 1:
+                    continue
+
+                close = float(df_tv["Close"].iloc[-1])
+                open_price = float(df_tv["Open"].iloc[-1])
+                high = float(df_tv["High"].iloc[-1])
+                low = float(df_tv["Low"].iloc[-1])
+                volume = float(df_tv["Volume"].iloc[-1])
+
+                # Günlük değişim (Open -> Close)
+                day_chg = (close - open_price) / open_price * 100 if open_price > 0 else 0
+
+                # Önceki kapanışa göre değişim
+                prev_close_chg = None
+                if len(df_tv) >= 2:
+                    prev_close = float(df_tv["Close"].iloc[-2])
+                    if prev_close > 0:
+                        prev_close_chg = (close - prev_close) / prev_close * 100
+
+                # Kullanılacak ana değişim: önceki kapanış varsa onu tercih et
+                main_chg = prev_close_chg if prev_close_chg is not None else day_chg
+
+                # Durum belirleme
+                if main_chg >= 9:
+                    durum = "🔴 TAVAN"
+                elif main_chg >= 7:
+                    durum = "🟠 TAVANA YAKIN"
+                elif main_chg >= 5:
+                    durum = "🟢 GÜÇLÜ YÜKSELİŞ"
+                elif main_chg <= -9:
+                    durum = "⚫ TABAN"
+                elif main_chg <= -7:
+                    durum = "🟤 TABANA YAKIN"
+                else:
+                    durum = ""
+
+                rows.append({
+                    "Hisse": sym,
+                    "Kapanış": round(close, 2),
+                    "Açılış": round(open_price, 2),
+                    "Yüksek": round(high, 2),
+                    "Düşük": round(low, 2),
+                    "Değişim %": round(main_chg, 2),
+                    "Gün İçi %": round(day_chg, 2),
+                    "Hacim": int(volume),
+                    "Durum": durum,
+                })
+            except Exception:
+                continue
+
+        progress.empty()
+
+        if rows:
+            df_result = pd.DataFrame(rows).sort_values("Değişim %", ascending=False).reset_index(drop=True)
+
+            # Metrikler
+            tavan_count = len(df_result[df_result["Değişim %"] >= 9])
+            taban_count = len(df_result[df_result["Değişim %"] <= -9])
+            avg_chg = df_result["Değişim %"].mean()
+
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Tavanda", f"{tavan_count} hisse")
+            m2.metric("Tabanda", f"{taban_count} hisse")
+            m3.metric("Ort. Değişim", f"%{avg_chg:.2f}")
+            m4.metric("Taranan", f"{len(df_result)} hisse")
+
+            st.divider()
+
+            # Tavan / tavana yakın hisseler
+            tavan_df = df_result[df_result["Durum"].str.contains("TAVAN|GÜÇLÜ", na=False)]
+            if not tavan_df.empty:
+                st.markdown('<div class="signal-buy">📈 <b>YÜKSELEN HİSSELER</b></div>', unsafe_allow_html=True)
+                st.dataframe(tavan_df, use_container_width=True, hide_index=True)
+
+            # Taban / tabana yakın hisseler
+            taban_df = df_result[df_result["Durum"].str.contains("TABAN", na=False)]
+            if not taban_df.empty:
+                st.markdown('<div class="signal-sell">📉 <b>DÜŞEN HİSSELER</b></div>', unsafe_allow_html=True)
+                st.dataframe(taban_df, use_container_width=True, hide_index=True)
+
+            st.divider()
+            st.markdown("**TÜM HİSSELER (Değişime Göre Sıralı)**")
+            st.dataframe(df_result, use_container_width=True, hide_index=True)
+        else:
+            st.warning("Veri çekilemedi. BIST kapalı olabilir veya bağlantı sorunu var.")
+    else:
+        st.info("Güncel tavan/taban verilerini görmek için **TARA** butonuna bas.")
 
 # ============== PORTFOLIO ==============
 with tab_portfolio:
