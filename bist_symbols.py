@@ -14,7 +14,7 @@ BIST100 = [
     "TTKOM", "TTRAK", "TUKAS", "TUPRS", "TURSG", "ULKER", "VAKBN", "VESBE",
     "VESTL", "YEOTK", "YKBNK", "ZOREN",
     # Ek hisseler
-    "NUGYO", "TERA", "TRHOL", "SEKFK", "TMPOL",
+    "NUGYO", "TERA", "TRHOL", "SEKFK", "TMPOL", "TEHOL", "GLRMK",
 ]
 
 

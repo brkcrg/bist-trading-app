@@ -745,10 +745,18 @@ with tab_tavan:
                     durum = "🟠 TAVANA YAKIN"
                 elif main_chg >= 5:
                     durum = "🟢 GÜÇLÜ YÜKSELİŞ"
+                elif main_chg >= 4:
+                    durum = "🟢 YÜKSELİŞ"
+                elif main_chg >= 3:
+                    durum = "🟢 YÜKSELİŞTE"
                 elif main_chg <= -9:
                     durum = "⚫ TABAN"
                 elif main_chg <= -7:
                     durum = "🟤 TABANA YAKIN"
+                elif main_chg <= -5:
+                    durum = "🔻 GÜÇLÜ DÜŞÜŞ"
+                elif main_chg <= -3:
+                    durum = "🔻 DÜŞÜŞTE"
                 else:
                     durum = ""
 
@@ -784,17 +792,23 @@ with tab_tavan:
 
             st.divider()
 
-            # Tavan / tavana yakın hisseler
-            tavan_df = df_result[df_result["Durum"].str.contains("TAVAN|GÜÇLÜ", na=False)]
-            if not tavan_df.empty:
-                st.markdown('<div class="signal-buy">📈 <b>YÜKSELEN HİSSELER</b></div>', unsafe_allow_html=True)
-                st.dataframe(tavan_df, use_container_width=True, hide_index=True)
+            # Yükselen hisseler (%3 ve üzeri)
+            yukselenler = df_result[df_result["Değişim %"] >= 3]
+            if not yukselenler.empty:
+                st.markdown(
+                    f'<div class="signal-buy">📈 <b>YÜKSELEN HİSSELER (%3+)</b> — {len(yukselenler)} hisse</div>',
+                    unsafe_allow_html=True,
+                )
+                st.dataframe(yukselenler, use_container_width=True, hide_index=True)
 
-            # Taban / tabana yakın hisseler
-            taban_df = df_result[df_result["Durum"].str.contains("TABAN", na=False)]
-            if not taban_df.empty:
-                st.markdown('<div class="signal-sell">📉 <b>DÜŞEN HİSSELER</b></div>', unsafe_allow_html=True)
-                st.dataframe(taban_df, use_container_width=True, hide_index=True)
+            # Düşen hisseler (%-3 ve altı)
+            dusenler = df_result[df_result["Değişim %"] <= -3]
+            if not dusenler.empty:
+                st.markdown(
+                    f'<div class="signal-sell">📉 <b>DÜŞEN HİSSELER (%-3 altı)</b> — {len(dusenler)} hisse</div>',
+                    unsafe_allow_html=True,
+                )
+                st.dataframe(dusenler, use_container_width=True, hide_index=True)
 
             st.divider()
             st.markdown("**TÜM HİSSELER (Değişime Göre Sıralı)**")
