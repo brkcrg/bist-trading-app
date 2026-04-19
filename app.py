@@ -119,25 +119,32 @@ tab_dashboard, tab_intraday, tab_analysis, tab_fundamental, tab_backtest, tab_sc
 
 # ============== DASHBOARD ==============
 with tab_dashboard:
-    pf = Portfolio.load(initial_cash=880_000.0)
-    snap = pf.snapshot()
-    total = pf.total_value()
-    invested = float(snap["Maliyet"].sum()) if not snap.empty else 0.0
-    pnl = float(snap["K/Z"].sum()) if not snap.empty else 0.0
-    pnl_pct = (pnl / invested * 100) if invested else 0.0
+    try:
+        pf = Portfolio.load(initial_cash=880_000.0)
+        if not pf.positions:
+            c1, c2 = st.columns(2)
+            c1.metric("Nakit", f"{pf.cash:,.0f} TL")
+            c2.metric("Pozisyon", "0")
+            st.info("Henüz açık pozisyon yok. FIRSAT TARAYICI sekmesinden sinyal veren hisseleri görebilirsin.")
+        else:
+            with st.spinner("Portföy güncelleniyor..."):
+                snap = pf.snapshot()
+            total = pf.total_value()
+            invested = float(snap["Maliyet"].sum()) if not snap.empty else 0.0
+            pnl = float(snap["K/Z"].sum()) if not snap.empty else 0.0
+            pnl_pct = (pnl / invested * 100) if invested else 0.0
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Toplam Varlık", f"{total:,.0f} TL", f"{pnl_pct:+.2f}%" if invested else None)
-    c2.metric("Nakit", f"{pf.cash:,.0f} TL")
-    c3.metric("Yatırılan", f"{invested:,.0f} TL")
-    c4.metric("Toplam K/Z", f"{pnl:+,.0f} TL")
-
-    st.divider()
-    st.subheader("Açık Pozisyonlar")
-    if snap.empty:
-        st.info("Henüz açık pozisyon yok. FIRSAT TARAYICI sekmesinden sinyal veren hisseleri görebilirsin.")
-    else:
-        st.dataframe(snap, use_container_width=True, hide_index=True)
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Toplam Varlık", f"{total:,.0f} TL", f"{pnl_pct:+.2f}%" if invested else None)
+            c2.metric("Nakit", f"{pf.cash:,.0f} TL")
+            c3.metric("Yatırılan", f"{invested:,.0f} TL")
+            c4.metric("Toplam K/Z", f"{pnl:+,.0f} TL")
+            st.divider()
+            st.subheader("Açık Pozisyonlar")
+            st.dataframe(snap, use_container_width=True, hide_index=True)
+    except Exception as e:
+        st.error(f"Portföy yüklenemedi: {e}")
+        st.info("Hata devam ederse TAVAN TAKİP veya TEKNİK ANALİZ sekmelerini kullanabilirsin.")
 
 # ============== INTRADAY / DAY TRADING ==============
 with tab_intraday:

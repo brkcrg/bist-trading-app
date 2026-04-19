@@ -41,9 +41,12 @@ class Portfolio:
             "cash": self.cash,
             "positions": [asdict(p) for p in self.positions],
         }
-        PORTFOLIO_FILE.write_text(
-            json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
+        try:
+            PORTFOLIO_FILE.write_text(
+                json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+        except (OSError, PermissionError):
+            pass
 
     def buy(self, symbol: str, shares: int, price: float, stop_loss: float | None = None) -> None:
         cost = shares * price
