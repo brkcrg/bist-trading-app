@@ -10,7 +10,7 @@ from data import fetch
 from strategy import generate_signals, latest_signal, signal_strength
 from backtest import run_backtest
 from scanner import scan
-from portfolio import Portfolio
+from portfolio import Portfolio, get_portfolio, init_portfolio
 from fundamentals import get_fundamentals, format_value
 from intraday import generate_intraday_signals, intraday_summary
 
@@ -119,13 +119,31 @@ tab_dashboard, tab_intraday, tab_analysis, tab_fundamental, tab_backtest, tab_sc
 
 # ============== DASHBOARD ==============
 with tab_dashboard:
-    try:
-        pf = Portfolio.load(initial_cash=880_000.0)
+    pf = get_portfolio(st.session_state)
+    if pf is None:
+        st.markdown("### Portföye Hoşgeldin")
+        st.info("Takip için başlangıç sermayeni gir. Bu bilgi sadece senin tarayıcı oturumunda saklanır — kimse göremez.")
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            init_cash = st.number_input(
+                "Başlangıç Sermayesi (TL)",
+                min_value=1000.0, max_value=1_000_000_000.0,
+                value=100_000.0, step=1000.0,
+                key="init_cash_input",
+            )
+        with col2:
+            st.write("")
+            st.write("")
+            if st.button("PORTFÖY OLUŞTUR", type="primary", use_container_width=True):
+                init_portfolio(st.session_state, init_cash)
+                st.rerun()
+    else:
         if not pf.positions:
-            c1, c2 = st.columns(2)
-            c1.metric("Nakit", f"{pf.cash:,.0f} TL")
-            c2.metric("Pozisyon", "0")
-            st.info("Henüz açık pozisyon yok. FIRSAT TARAYICI sekmesinden sinyal veren hisseleri görebilirsin.")
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Başlangıç Sermayesi", f"{pf.initial_cash:,.0f} TL")
+            c2.metric("Nakit", f"{pf.cash:,.0f} TL")
+            c3.metric("Pozisyon", "0")
+            st.info("Henüz açık pozisyon yok. **PORTFÖY** sekmesinden alım yapabilir, **FIRSAT TARAYICI**'dan sinyalleri görebilirsin.")
         else:
             with st.spinner("Portföy güncelleniyor..."):
                 snap = pf.snapshot()
@@ -142,9 +160,6 @@ with tab_dashboard:
             st.divider()
             st.subheader("Açık Pozisyonlar")
             st.dataframe(snap, use_container_width=True, hide_index=True)
-    except Exception as e:
-        st.error(f"Portföy yüklenemedi: {e}")
-        st.info("Hata devam ederse TAVAN TAKİP veya TEKNİK ANALİZ sekmelerini kullanabilirsin.")
 
 # ============== INTRADAY / DAY TRADING ==============
 with tab_intraday:
@@ -827,13 +842,22 @@ with tab_tavan:
 
 # ============== PORTFOLIO ==============
 with tab_portfolio:
-    pf = Portfolio.load(initial_cash=880_000.0)
+    pf = get_portfolio(st.session_state)
+    if pf is None:
+        st.warning("Önce **GÖSTERGE PANELİ** sekmesinden portföy oluştur.")
+        st.stop()
+
     snap = pf.snapshot()
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
     c1.metric("Nakit", f"{pf.cash:,.2f} TL")
     c2.metric("Toplam Değer", f"{pf.total_value():,.2f} TL")
     c3.metric("Pozisyon", f"{len(pf.positions)}")
+    with c4:
+        st.write("")
+        if st.button("PORTFÖYÜ SIFIRLA", use_container_width=True):
+            st.session_state.pop("portfolio", None)
+            st.rerun()
 
     if not snap.empty:
         st.dataframe(snap, use_container_width=True, hide_index=True)

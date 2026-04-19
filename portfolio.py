@@ -1,14 +1,10 @@
-"""Basit portföy takip - JSON dosyasında saklanır."""
+"""Portföy takip - session state tabanlı (her kullanıcı kendi portföyü)."""
 
-import json
-from dataclasses import dataclass, asdict
-from pathlib import Path
+from dataclasses import dataclass, field
 from typing import List
 import pandas as pd
 
 from data import fetch
-
-PORTFOLIO_FILE = Path(__file__).parent / "portfolio.json"
 
 
 @dataclass
@@ -24,35 +20,14 @@ class Position:
 @dataclass
 class Portfolio:
     cash: float
-    positions: List[Position]
-
-    @classmethod
-    def load(cls, initial_cash: float = 880_000.0) -> "Portfolio":
-        if PORTFOLIO_FILE.exists():
-            data = json.loads(PORTFOLIO_FILE.read_text(encoding="utf-8"))
-            return cls(
-                cash=data["cash"],
-                positions=[Position(**p) for p in data["positions"]],
-            )
-        return cls(cash=initial_cash, positions=[])
-
-    def save(self) -> None:
-        data = {
-            "cash": self.cash,
-            "positions": [asdict(p) for p in self.positions],
-        }
-        try:
-            PORTFOLIO_FILE.write_text(
-                json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
-            )
-        except (OSError, PermissionError):
-            pass
+    initial_cash: float = 0.0
+    positions: List[Position] = field(default_factory=list)
 
     def buy(self, symbol: str, shares: int, price: float, stop_loss: float | None = None) -> None:
         cost = shares * price
         if cost > self.cash:
             raise ValueError(f"Yetersiz nakit: {cost:.2f} gerekli, {self.cash:.2f} var")
-        existing = next((p for p in self.positions if p.symbol == symbol), None)
+        existing = next((p for p in self.positions if p.symbol == symbol.upper()), None)
         if existing:
             total_shares = existing.shares + shares
             existing.avg_price = (existing.avg_price * existing.shares + price * shares) / total_shares
@@ -70,7 +45,6 @@ class Portfolio:
                 )
             )
         self.cash -= cost
-        self.save()
 
     def sell(self, symbol: str, shares: int, price: float) -> float:
         pos = next((p for p in self.positions if p.symbol == symbol.upper()), None)
@@ -84,11 +58,9 @@ class Portfolio:
         self.cash += proceeds
         if pos.shares == 0:
             self.positions.remove(pos)
-        self.save()
         return pnl
 
     def snapshot(self) -> pd.DataFrame:
-        """Güncel fiyatlarla portföy tablosu döner."""
         rows = []
         for p in self.positions:
             try:
@@ -115,5 +87,22 @@ class Portfolio:
 
     def total_value(self) -> float:
         snap = self.snapshot()
-        market = snap["Piyasa Değeri"].sum() if not snap.empty else 0.0
+        market = float(snap["Piyasa Değeri"].sum()) if not snap.empty else 0.0
         return float(self.cash + market)
+
+    def reset(self, initial_cash: float) -> None:
+        self.cash = initial_cash
+        self.initial_cash = initial_cash
+        self.positions = []
+
+
+def get_portfolio(st_session_state) -> Portfolio | None:
+    """Session state'ten portföyü döner, yoksa None."""
+    return st_session_state.get("portfolio")
+
+
+def init_portfolio(st_session_state, initial_cash: float) -> Portfolio:
+    """Yeni portföy oluşturur ve session state'e koyar."""
+    pf = Portfolio(cash=initial_cash, initial_cash=initial_cash, positions=[])
+    st_session_state["portfolio"] = pf
+    return pf
