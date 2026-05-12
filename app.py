@@ -13,6 +13,7 @@ from scanner import scan
 from portfolio import Portfolio, get_portfolio, init_portfolio
 from fundamentals import get_fundamentals, format_value
 from intraday import generate_intraday_signals, intraday_summary
+from brokers import parse_csv, list_brokers, broker_summary, format_display
 
 st.set_page_config(
     page_title="BIST Swing Pro",
@@ -96,25 +97,93 @@ st.markdown("""
 
 # -------- SIDEBAR --------
 with st.sidebar:
-    st.markdown("### BIST Swing Pro")
-    st.caption("Kısa Vadeli Swing Trading · 3-10 gün")
-    st.divider()
-    st.markdown("**Strateji Özeti**")
     st.markdown("""
-- **Giriş:** EMA9 × EMA21 yukarı kesim
-- **Filtre:** RSI(7) 40-65 + hacim 1.2x
-- **Stop:** Giriş − 1.5 × ATR
-- **Hedef:** Giriş + 2.5 × ATR
-- **Risk/Ödül:** 1 : 1.67
-    """)
-    st.divider()
-    st.caption("Bu uygulama yatırım tavsiyesi değildir. Tüm işlemler kendi sorumluluğundadır.")
+<div style="padding:18px 16px; background:linear-gradient(135deg, #00D4AA22 0%, #0099FF22 100%);
+            border-radius:12px; border:1px solid #00D4AA44; margin-bottom:14px;">
+    <div style="font-size:1.35rem; font-weight:800; letter-spacing:-0.01em;
+                background:linear-gradient(90deg,#00D4AA,#0099FF);
+                -webkit-background-clip:text; -webkit-text-fill-color:transparent;">
+        BIST Swing Pro
+    </div>
+    <div style="font-size:0.78rem; color:#8B92A8; margin-top:4px; letter-spacing:0.04em;">
+        KISA VADELİ · 3-10 GÜN
+    </div>
+</div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+<div style="margin:4px 0 10px 0; font-size:0.72rem; color:#8B92A8;
+            letter-spacing:0.12em; font-weight:600;">STRATEJİ PARAMETRELERİ</div>
+    """, unsafe_allow_html=True)
+
+    strateji = [
+        ("GİRİŞ", "EMA9 × EMA21 yukarı kesim", "#00D4AA"),
+        ("FİLTRE", "RSI(7) 40–65 · Hacim 1.2×", "#0099FF"),
+        ("STOP", "Giriş − 1.5 × ATR", "#FF4455"),
+        ("HEDEF", "Giriş + 2.5 × ATR", "#FFB400"),
+        ("R/Ö", "1 : 1.67", "#BB88FF"),
+    ]
+    for label, value, color in strateji:
+        st.markdown(f"""
+<div style="display:flex; align-items:center; padding:8px 10px; margin-bottom:6px;
+            background:#141824; border-left:3px solid {color}; border-radius:6px;">
+    <div style="flex:0 0 58px; font-size:0.68rem; font-weight:700; letter-spacing:0.08em;
+                color:{color};">{label}</div>
+    <div style="flex:1; font-size:0.82rem; color:#DADFEC;">{value}</div>
+</div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("""
+<div style="margin:18px 0 10px 0; font-size:0.72rem; color:#8B92A8;
+            letter-spacing:0.12em; font-weight:600;">HIZLI BAKIŞ</div>
+    """, unsafe_allow_html=True)
+
+    _pf_side = get_portfolio(st.session_state)
+    if _pf_side is not None:
+        _total = _pf_side.total_value()
+        _pnl = _total - _pf_side.initial_cash if _pf_side.initial_cash else 0
+        _pct = (_pnl / _pf_side.initial_cash * 100) if _pf_side.initial_cash else 0
+        _color = "#00D4AA" if _pnl >= 0 else "#FF4455"
+        st.markdown(f"""
+<div style="padding:12px 14px; background:#141824; border-radius:8px; border:1px solid #2A3142;">
+    <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+        <span style="font-size:0.72rem; color:#8B92A8;">Toplam Varlık</span>
+        <span style="font-size:0.9rem; font-weight:700;">{_total:,.0f} TL</span>
+    </div>
+    <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+        <span style="font-size:0.72rem; color:#8B92A8;">K/Z</span>
+        <span style="font-size:0.9rem; font-weight:700; color:{_color};">{_pnl:+,.0f} TL ({_pct:+.2f}%)</span>
+    </div>
+    <div style="display:flex; justify-content:space-between;">
+        <span style="font-size:0.72rem; color:#8B92A8;">Pozisyon</span>
+        <span style="font-size:0.9rem; font-weight:700;">{len(_pf_side.positions)}</span>
+    </div>
+</div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+<div style="padding:14px; background:#141824; border-radius:8px; border:1px dashed #2A3142;
+            text-align:center; color:#8B92A8; font-size:0.82rem;">
+    Portföy oluşturulmadı
+</div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("""
+<div style="margin-top:22px; padding:12px; background:#1A0E0E;
+            border-left:3px solid #FF4455; border-radius:6px;">
+    <div style="font-size:0.7rem; font-weight:700; color:#FF4455; letter-spacing:0.08em;
+                margin-bottom:4px;">⚠ UYARI</div>
+    <div style="font-size:0.75rem; color:#C8CFDE; line-height:1.5;">
+        Bu uygulama <b>yatırım tavsiyesi değildir</b>. Tüm işlemler kendi sorumluluğundadır.
+    </div>
+</div>
+    """, unsafe_allow_html=True)
 
 st.title("BIST Swing Trading Pro")
 st.caption("Kısa vadeli (3-10 gün tutma) swing stratejisi · EMA9/21 + RSI(7) + ATR")
 
-tab_dashboard, tab_intraday, tab_analysis, tab_fundamental, tab_backtest, tab_scanner, tab_tavan, tab_portfolio = st.tabs(
-    ["GÖSTERGE PANELİ", "GÜNLÜK TRADE", "TEKNİK ANALİZ", "TEMEL ANALİZ", "BACKTEST", "FIRSAT TARAYICI", "TAVAN TAKİP", "PORTFÖY"]
+tab_dashboard, tab_intraday, tab_analysis, tab_fundamental, tab_backtest, tab_scanner, tab_tavan, tab_broker, tab_portfolio = st.tabs(
+    ["GÖSTERGE PANELİ", "GÜNLÜK TRADE", "TEKNİK ANALİZ", "TEMEL ANALİZ", "BACKTEST", "FIRSAT TARAYICI", "TAVAN TAKİP", "ARACI KURUM", "PORTFÖY"]
 )
 
 # ============== DASHBOARD ==============
@@ -839,6 +908,91 @@ with tab_tavan:
             st.warning("Veri çekilemedi. BIST kapalı olabilir veya bağlantı sorunu var.")
     else:
         st.info("Güncel tavan/taban verilerini görmek için **TARA** butonuna bas.")
+
+# ============== BROKER / ARACI KURUM ==============
+with tab_broker:
+    st.markdown("### Aracı Kurum İşlem Analizi")
+    st.caption("Aracı kurumların hangi hisseleri topladığını / dağıttığını gör. "
+               "Matriks / Foreks / broker terminali CSV/Excel çıktısını yükle.")
+
+    col_up, col_info = st.columns([2, 1])
+    with col_up:
+        uploaded = st.file_uploader(
+            "CSV veya Excel yükle",
+            type=["csv", "xlsx", "xls"],
+            help="Dosyada Sembol, Aracı Kurum, Alış TL, Satış TL kolonları olmalı",
+            key="broker_upload",
+        )
+    with col_info:
+        st.markdown("""
+**Beklenen kolonlar:**
+- Sembol / Hisse
+- Aracı Kurum
+- Alış TL, Satış TL
+- (opsiyonel) Net TL
+        """)
+
+    if uploaded is not None:
+        try:
+            df_broker = parse_csv(uploaded.getvalue())
+            st.success(f"✓ {len(df_broker)} satır yüklendi")
+            st.session_state["broker_df"] = df_broker
+        except Exception as e:
+            st.error(f"Yükleme hatası: {e}")
+
+    df_broker = st.session_state.get("broker_df")
+    if df_broker is not None and not df_broker.empty:
+        brokers = list_brokers(df_broker)
+        # Tera'yı default seç varsa
+        default_idx = 0
+        for i, b in enumerate(brokers):
+            if "tera" in b.lower():
+                default_idx = i
+                break
+
+        col_sel, col_mode, col_limit = st.columns([2, 1, 1])
+        selected_broker = col_sel.selectbox("Aracı Kurum", brokers, index=default_idx)
+        mode = col_mode.radio("Mod", ["Topluyor", "Dağıtıyor"], horizontal=True)
+        limit = col_limit.number_input("Göster (adet)", 5, 100, 20, 5)
+
+        mode_key = "accumulate" if mode == "Topluyor" else "distribute"
+        result = broker_summary(df_broker, selected_broker, mode=mode_key, limit=int(limit))
+
+        if result.empty:
+            st.warning(f"{selected_broker} için {mode.lower()} işlem bulunamadı")
+        else:
+            total_net = float(result["net_tl"].sum())
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Aracı Kurum", selected_broker)
+            m2.metric("Hisse Sayısı", len(result))
+            label = "Toplam Net Alım" if mode_key == "accumulate" else "Toplam Net Satış"
+            m3.metric(label, f"{total_net:+,.0f} TL")
+
+            display = format_display(result)
+            if mode_key == "accumulate":
+                st.markdown(
+                    f'<div class="signal-buy">📈 <b>{selected_broker} — EN ÇOK TOPLADIĞI HİSSELER</b></div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    f'<div class="signal-sell">📉 <b>{selected_broker} — EN ÇOK DAĞITTIĞI HİSSELER</b></div>',
+                    unsafe_allow_html=True,
+                )
+            st.dataframe(display, use_container_width=True, hide_index=True)
+
+            if st.button("Veriyi temizle", key="clear_broker"):
+                st.session_state.pop("broker_df", None)
+                st.rerun()
+    else:
+        st.info(
+            "**Nasıl kullanılır:**\n\n"
+            "1. Matriks / Foreks / KAP'tan aracı kurum işlem raporu indir\n"
+            "2. Yukarıdaki kutuya yükle\n"
+            "3. Tera'yı (veya başka bir kurumu) seç\n"
+            "4. En çok toplanan / dağıtılan hisseleri gör\n\n"
+            "**Not:** Veri T+1 gecikmeli gelir — bugünün işlemleri yarın yayınlanır."
+        )
 
 # ============== PORTFOLIO ==============
 with tab_portfolio:
